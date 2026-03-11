@@ -30,25 +30,30 @@ jobs:
       run: |
         mkdir server && cd server
         
-        # Download the specific jar you provided
+        # Download the official jar
         curl -o server.jar https://piston-data.mojang.com/v1/objects/64bb6d763bed0a9f1d632ec347938594144943ed/server.jar
         
         # Accept EULA
         echo "eula=true" > eula.txt
         
-        # Background task to OP the user once the server is ready
+        # Configure Server Properties
+        # view-distance: controls how many chunks the server loads
+        # simulation-distance: controls how far away entities/crops update
+        echo "view-distance=64" >> server.properties
+        echo "simulation-distance=10" >> server.properties
+        echo "max-players=10" >> server.properties
+        
+        # Background task to OP Syrax_x
         (
-          echo "Waiting for server to initialize..."
-          sleep 60  # Wait 60 seconds for the server to fully load
+          sleep 60
           echo "op Syrax_x" > server_input
-          echo "Syrax_x has been promoted to Operator."
         ) &
 
-        # Display Network Info
         echo "------------------------------------------------"
         echo "SERVER IP: $(tailscale ip -4)"
+        echo "RENDER DISTANCE: 64"
         echo "------------------------------------------------"
         
-        # Start Server using a named pipe (FIFO) to allow command injection
+        # Start Server
         mkfifo server_input
         tail -f server_input | java -Xmx6G -Xms6G -jar server.jar nogui
