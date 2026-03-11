@@ -10,7 +10,7 @@ on:
 jobs:
   run-server:
     runs-on: ubuntu-latest
-    timeout-minutes: 360 # 6-hour limit
+    timeout-minutes: 360
 
     steps:
     - name: Setup Tailscale
@@ -23,23 +23,32 @@ jobs:
       uses: actions/setup-java@v4
       with:
         distribution: 'temurin'
-        java-version: '21' # Required for modern Minecraft versions
+        java-version: '21'
 
     - name: Download & Start Server
+      shell: bash
       run: |
         mkdir server && cd server
         
         # Download the specific jar you provided
         curl -o server.jar https://piston-data.mojang.com/v1/objects/64bb6d763bed0a9f1d632ec347938594144943ed/server.jar
         
-        # Accept EULA (Mandatory)
+        # Accept EULA
         echo "eula=true" > eula.txt
         
-        # Get your Tailscale IP to show in the logs
+        # Background task to OP the user once the server is ready
+        (
+          echo "Waiting for server to initialize..."
+          sleep 60  # Wait 60 seconds for the server to fully load
+          echo "op Syrax_x" > server_input
+          echo "Syrax_x has been promoted to Operator."
+        ) &
+
+        # Display Network Info
         echo "------------------------------------------------"
         echo "SERVER IP: $(tailscale ip -4)"
         echo "------------------------------------------------"
         
-        # Launch with 6GB RAM
-        # -Xmx6G sets the maximum memory
-        java -Xmx6G -Xms6G -jar server.jar nogui
+        # Start Server using a named pipe (FIFO) to allow command injection
+        mkfifo server_input
+        tail -f server_input | java -Xmx6G -Xms6G -jar server.jar nogui
