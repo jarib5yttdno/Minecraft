@@ -1,4 +1,4 @@
-name: Minecraft Server on GitHub
+name: Official Minecraft Server
 
 on:
   workflow_dispatch:
@@ -6,52 +6,40 @@ on:
       ts_authkey:
         description: "Tailscale Auth key"
         required: true
-      version:
-        description: "Minecraft Version (e.g. 1.20.4)"
-        required: false
-        default: "1.20.4"
 
 jobs:
-  minecraft:
-    runs-on: ubuntu-latest # Linux is faster and uses less RAM than Windows for servers
-    timeout-minutes: 360
+  run-server:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360 # 6-hour limit
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    # ---------------- TAILSCALE ----------------
-    - name: Tailscale
+    - name: Setup Tailscale
       uses: tailscale/github-action@v2
       with:
         authkey: ${{ inputs.ts_authkey }}
-        hostname: "mc-server"
+        hostname: "mc-host"
 
-    # ---------------- JAVA SETUP ----------------
     - name: Setup Java
       uses: actions/setup-java@v4
       with:
         distribution: 'temurin'
-        java-version: '21'
+        java-version: '21' # Required for modern Minecraft versions
 
-    # ---------------- SERVER SETUP ----------------
-    - name: Download and Run Minecraft
+    - name: Download & Start Server
       run: |
-        # Create server directory
-        mkdir mc_server && cd mc_server
+        mkdir server && cd server
         
-        # Download PaperMC (High performance server)
-        # Note: You can replace this URL with a specific version or a modded jar
-        curl -o server.jar https://api.papermc.io/v2/projects/paper/versions/${{ github.event.inputs.version }}/builds/latest/downloads/paper-${{ github.event.inputs.version }}-latest.jar
+        # Download the specific jar you provided
+        curl -o server.jar https://piston-data.mojang.com/v1/objects/64bb6d763bed0a9f1d632ec347938594144943ed/server.jar
         
-        # Accept EULA
+        # Accept EULA (Mandatory)
         echo "eula=true" > eula.txt
         
-        # Get Tailscale IP for the logs
-        TS_IP=$(tailscale ip -4)
+        # Get your Tailscale IP to show in the logs
         echo "------------------------------------------------"
-        echo "SERVER STARTING AT: $TS_IP"
+        echo "SERVER IP: $(tailscale ip -4)"
         echo "------------------------------------------------"
-
-        # Start Server with 6GB RAM (GitHub runners usually have 7GB total)
+        
+        # Launch with 6GB RAM
+        # -Xmx6G sets the maximum memory
         java -Xmx6G -Xms6G -jar server.jar nogui
